@@ -1,0 +1,160 @@
+name: $(versionSemantic)
+
+trigger: none
+# trigger:
+#   branches:
+#     include:
+#       - master
+#       - develop
+#       - feature/*
+#       - release/*
+#       - hotfix/*
+
+pool:
+  name: Cloud Pool
+  demands:
+   - maven
+
+parameters:
+
+# Required Arg from UI. Only build artifacts or build and upload artifacts.
+  - name: artifactsUpload
+    type: string
+    default: AzureArtifacts
+    values:
+      - Disable
+      - AzureArtifacts
+# Build Type.
+  # This varaible can be used build type.
+  - name: buildType
+    type: string
+    default: Maven
+    values:
+    - Maven
+    - Angular
+
+  - name: appType
+    type: string
+    default: Others
+    values:
+    - CloudFoundry
+    - Others
+
+  - name: binArtifactSource
+    type: string
+    default: 'logging-framework/target'
+
+  # Required Arg from UI.
+  - name: credHub
+    type: string
+    default: SKIP
+    values:
+      - CREATE
+      - UPDATE
+      - SKIP
+
+  # Required Arg from UI.
+  - name: sso
+    type: string
+    default: SKIP
+    values:
+      - CREATE
+      - SKIP
+
+  # Optional
+  - name: isFirstTimeDeploying
+    type: boolean
+    default: false
+    displayName: "Select true if you are deploying blue green as first time"
+    values:
+      - true
+      - false
+
+  # Add folders to exclude
+  - name: cxfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates,cloud-sre-observability/cloud-sre-aac-templates,cloud-sre-observability/cloud-sre-dashboard,cloud-sre-observability/cloud-sre-iac-templates,cloud-sre-observability/cloud-sre-mac-templates,instrumentation-library'
+
+  - name: sonarfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates/**,cloud-sre-observability/cloud-sre-aac-templates/**,cloud-sre-observability/cloud-sre-dashboard/**,cloud-sre-observability/cloud-sre-iac-templates/**,cloud-sre-observability/cloud-sre-mac-templates/**,instrumentation-library/**'
+
+  - name: bdfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates,cloud-sre-aac-templates,cloud-sre-dashboard,cloud-sre-iac-templates,cloud-sre-mac-templates,instrumentation-library'
+
+  # SonarQube Project Key
+  - name: sonarqubeProjectKey
+    type: string
+    default: 'Cloud_Team_$(Build.Repository.Name):logging-framework'
+
+  # Scans trigger
+  - name: sonarqubeEnabled
+    type: boolean
+    default: true
+  - name: blackduckEnabled
+    type: boolean
+    default: true
+  - name: checkmarxEnabled
+    type: boolean
+    default: true
+
+resources:
+  repositories:
+    - repository: azure-pipeline-yaml-templates
+      type: git
+      name: Cloud Team/azure-pipeline-yaml-templates
+      ref: feature/master-bd-reporting-fixes
+      #ref: disputes-tas
+
+
+extends:
+  template: /templates/pipelines/tas-framework-pipeline.yml@azure-pipeline-yaml-templates
+  parameters:
+  #### Common controls
+    buildType: ${{ parameters.buildType }}
+    appType: ${{ parameters.appType }}
+    sonarqubeEnabled: ${{ parameters.sonarqubeEnabled }}
+    blackduckEnabled: ${{ parameters.blackduckEnabled }}
+    checkmarxEnabled: ${{ parameters.checkmarxEnabled }}
+    artifactsUpload: ${{ parameters.artifactsUpload }}
+    binArtifactSource: ${{ parameters.binArtifactSource }}
+#### Audit Trail
+    auditTrail: false
+#### Gating
+#### Checkmarx ####
+    vulnerabilityThreshold: true
+    high: 0
+    medium: 0
+    low: 8
+    failBuildForNewVulnerabilitiesEnabled: true
+    failBuildForNewVulnerabilitiesSeverity: High
+    checkmarxContinueOnError: true ### -- true for active and false for passive gating -- ####
+    folderExclusion: ${{ parameters.cxfolderExclusion }}
+#### Blackduck ####
+#### For blackduck gating is enabled from blackduck tool
+    extraArgs: "--detect.source.path='$(Build.SourcesDirectory)/${{ parameters.binArtifactSource }}' --detect.wait.for.results=true --detect.excluded.directories=${{ parameters.bdfolderExclusion }}"
+    blackduckContinueOnError: true
+#### Sonarqube ####
+    sonarqubeQualityGateCheck: true
+#### SonarQube qualitygate used for reporting
+    sonarqubeQualityGate: 'Modern Deployment Quality Gate - Baseline'
+    sonarqubeProjectKey: Cloud_Team_$(Build.Repository.Name):logging-framework
+    branchName: feature/logging-framework
+    sonarqubeContinueOnError: true
+    sonarqubeExtraProperties: sonar.exclusions=${{ parameters.sonarfolderExclusion }}",sonar.projectKey=${{ parameters.sonarqubeProjectKey }}
+#### Regular ADO pipeline    
+    trunkBranches:
+      - refs/heads/master
+      - refs/heads/develop
+      - refs/heads/feature
+      - refs/heads/release
+      - refs/heads/hotfix
+    versionMajor: 1
+    versionMinor: 0
+    buildArgs:
+    - name: mavenArgs
+      jdkVersion: 11
+      pomFile: logging-framework/pom.xml
+      mavenOptions: '-DincPatch,-Dmaven.test.skip=false'
+    deploy: false  

@@ -1,0 +1,207 @@
+name: $(versionSemantic)
+
+trigger: none
+# trigger:
+#   branches:
+#     include:
+#       - master
+#       - develop
+#       - feature/*
+#       - release/*
+#       - hotfix/*
+
+pool:
+  name: Cloud Pool
+  demands:
+   - maven
+
+parameters:
+#### Audit trail report upload 
+  - name: auditTrail
+    type: boolean
+    default: true
+
+# Required Arg from UI. Only build artifacts or build and upload artifacts.
+  - name: artifactsUpload
+    type: string
+    default: AzureArtifacts
+    values:
+      - Disable
+      - AzureArtifacts
+# Build Type.
+  # This varaible can be used build type.
+  - name: buildType
+    type: string
+    default: Maven
+    values:
+    - Maven
+    - Angular
+
+  - name: appType
+    type: string
+    default: Others
+    values:
+    - CloudFoundry
+    - Others
+
+  # binary file upload from for deploy
+  - name: binArtifactSource
+    type: string
+    default: 'logging-framework/target'
+
+  # Required Arg from UI.
+  - name: credHub
+    type: string
+    default: SKIP
+    values:
+      - CREATE
+      - UPDATE
+      - SKIP
+
+  # Required Arg from UI.
+  - name: sso
+    type: string
+    default: SKIP
+    values:
+      - CREATE
+      - SKIP
+
+  # Optional
+  - name: isFirstTimeDeploying
+    type: boolean
+    default: false
+    displayName: "Select true if you are deploying blue green as first time"
+    values:
+      - true
+      - false
+
+  # Add folders to exclude
+  - name: cxfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates,cloud-sre-observability/cloud-sre-aac-templates,cloud-sre-observability/cloud-sre-dashboard,cloud-sre-observability/cloud-sre-iac-templates,cloud-sre-observability/cloud-sre-mac-templates,instrumentation-library'
+
+  - name: sonarfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates/**,cloud-sre-observability/cloud-sre-aac-templates/**,cloud-sre-observability/cloud-sre-dashboard/**,cloud-sre-observability/cloud-sre-iac-templates/**,cloud-sre-observability/cloud-sre-mac-templates/**,instrumentation-library/**'
+
+  - name: bdfolderExclusion
+    type: string
+    default: 'azure-pipeline-yaml-templates,cloud-sre-aac-templates,cloud-sre-dashboard,cloud-sre-iac-templates,cloud-sre-mac-templates,instrumentation-library'
+
+  # SonarQube Project Key
+  - name: sonarqubeProjectKey
+    type: string
+    default: 'Cloud_Team_$(Build.Repository.Name):logging-framework'
+
+  # Scans trigger
+  - name: sonarqubeEnabled
+    type: boolean
+    default: true
+  - name: blackduckEnabled
+    type: boolean
+    default: true
+  - name: checkmarxEnabled
+    type: boolean
+    default: true
+
+  # #### Artifact Name - pipeline artifact folder name to be used to upload to ServiceNow
+  # - name: checkmarxArtifactFolderName
+  #   type: string
+  #   default: SASTScanReport
+  #### To enable checkmarx scan report
+  - name: checkmarxReportAttachment
+    default: true
+    type: boolean
+  # Enable blackduck reporting.
+  - name: blackduckReport
+    type: boolean
+    default: false   ##was true.
+
+  - name: blackduckReportOutputFormat
+    type: string
+    default: 'json'
+    values:
+    - 'txt'
+    - 'json'
+  ## attach blackduck risk report to pipeline artifact
+  - name: blackduckReportAttachment
+    type: boolean
+    default: true
+  ## attach sonarqube report to pipeline artifact
+  - name: sonarqubeReportAttachment
+    type: boolean
+    default: true
+  #### Enable sonarqube reporting
+  - name: sonarqubeReport
+    type: boolean
+    default: false
+
+resources:
+  repositories:
+    - repository: azure-pipeline-yaml-templates
+      type: git
+      name: Cloud Team/azure-pipeline-yaml-templates
+      ref: feature/sre-md-report
+      #ref: disputes-tas
+
+
+extends:
+  template: /templates/pipelines/tas-framework-pipeline.yml@azure-pipeline-yaml-templates
+  parameters:
+  #### Common controls
+    buildType: ${{ parameters.buildType }}
+    appType: ${{ parameters.appType }}
+    sonarqubeEnabled: ${{ parameters.sonarqubeEnabled }}
+    blackduckEnabled: ${{ parameters.blackduckEnabled }}
+    checkmarxEnabled: ${{ parameters.checkmarxEnabled }}
+    artifactsUpload: ${{ parameters.artifactsUpload }}
+    binArtifactSource: ${{ parameters.binArtifactSource }}
+#### Audit Trail
+    auditTrail: ${{ parameters.auditTrail }}
+#### Gating
+#### Checkmarx ####
+    vulnerabilityThreshold: true
+    high: 0
+    medium: 0
+    low: 8
+    failBuildForNewVulnerabilitiesEnabled: true
+    failBuildForNewVulnerabilitiesSeverity: High
+    checkmarxContinueOnError: true ### -- true for active and false for passive gating -- ####
+    folderExclusion: ${{ parameters.cxfolderExclusion }}
+    checkmarxReportAttachment: ${{ parameters.checkmarxReportAttachment }}
+    generatePDFReport: false
+#### Blackduck ####
+#### For blackduck gating is enabled from blackduck tool
+    extraArgs: "--detect.source.path='$(Build.SourcesDirectory)/${{ parameters.binArtifactSource }}' --detect.wait.for.results=true --detect.excluded.directories=${{ parameters.bdfolderExclusion }}"
+    blackduckContinueOnError: true
+    blackduckReport: ${{ parameters.blackduckReport }}
+    blackduckReportAttachment: ${{ parameters.blackduckReportAttachment }}
+    blackduckReportOutputFormat: ${{ parameters.blackduckReportOutputFormat }}
+#### Sonarqube ####
+    sonarqubeExtraProperties: sonar.exclusions=${{ parameters.sonarfolderExclusion }}"
+    #sonarqubeExtraProperties: sonar.exclusions=${{ parameters.sonarfolderExclusion }}",sonar.projectKey=${{ parameters.sonarqubeProjectKey }}
+    sonarqubeQualityGateCheck: true
+    # SonarQube qualitygate used for reporting
+    sonarqubeQualityGate: 'Modern Deployment Quality Gate - Baseline'
+    #sonarqubeProjectKey: Cloud_Team_$(Build.Repository.Name):logging-framework
+    sonarqubeProjectKey: logging:common-logging-framework
+      # use specific branch name for the summary report; default will be set to master
+    sonarqubeBranchName: feature/logging-framework
+    sonarqubeContinueOnError: true
+    sonarqubeReport: ${{ parameters.sonarqubeReport }}
+    sonarqubeReportAttachment: ${{ parameters.sonarqubeReportAttachment }}
+#### Regular ADO pipeline    
+    trunkBranches:
+      - refs/heads/master
+      - refs/heads/develop
+      - refs/heads/feature
+      - refs/heads/release
+      - refs/heads/hotfix
+    versionMajor: 1
+    versionMinor: 0
+    buildArgs:
+    - name: mavenArgs
+      jdkVersion: 11
+      pomFile: logging-framework/pom.xml
+      mavenOptions: '-DincPatch,-Dmaven.test.skip=false'
+    deploy: false  

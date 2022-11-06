@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration>
+		
+	<property resource="application.yaml" />
+		
+	<property name="logFormat" source="sre.logging.format" />
+	<property name="systemName" source="sre.logging.systemName" />
+	<property name="appnameVersion" source="sre.logging.appnameVersion" />
+    <property name="serviceName" source="sre.logging.serviceName" />    
+	<property name="localFormat" value="${logFormat}" />
+	
+	<property name="enableStackTraceLimit" value="sre.logging.enableStackTraceLimit" />
+	<property name="stackTraceLimit" value="sre.logging.stackTraceLimit" />
+	<property name="rootLocalCauseFirst" value="sre.logging.rootLocalCauseFirst" />
+
+	<appender name="json"
+			  class="ch.qos.logback.core.ConsoleAppender">
+		<encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+			<providers>
+				<pattern>	
+					<pattern>
+					{
+						"requestTime": "%date{MM/dd/yyyy HH:mm:ss.SSS}",
+						"systemName": "${systemName}",
+						"appnameVersion": "${appnameVersion}",
+						"applicationAddress": "%mdc{applicationAddress}",
+						"serviceName": "${serviceName}",
+						"componentName": "%logger",
+						"methodFullName": "%replace(%replace(%caller{1..2}){'(?!((?!\\.).\\w*(?=\\())).','')}){'[\\r\\n]+',''}",
+						"lineNumber": "%replace(%replace(%caller{1..2}){'(?!(?=^[\\:]$)*\\d*(?=\\d\\))).',''}){'[\\r\\n]+',''}",
+						"sourceAddress": "%mdc{sourceAddress}",
+						"userId": "%mdc{userId}",
+						"spanId": "%mdc{spanId}",
+						"traceId": "%mdc{traceId}",
+						"userAgentAttributes": "%mdc{userAgentAttributes}",
+						"duration": "%mdc{duration}",
+						"eventLevel": "%level",
+						"eventOutcome": "%mdc{eventOutcome}",
+						"eventStatusCode": "%mdc{responseCode}",
+						"eventName": "%mdc{eventName:-}",
+						"eventDescription": "%mdc{eventDescription:-}",
+						"message": "%m %ex"
+					}
+					</pattern>
+				</pattern>		
+			</providers>
+		</encoder>
+	</appender>
+	
+	<!-- Logging levels for reference ALL < DEBUG < INFO < WARN < ERROR < FATAL <OFF -->
+		
+	<!-- appender name="aiAppender" class="com.microsoft.applicationinsights.logback.ApplicationInsightsAppender">
+    	<instrumentationKey>${INSTRUMENTATION_KEY}</instrumentationKey>
+    </appender-->
+    
+	<root level="INFO">
+		<if condition='isDefined("localFormat")'>
+			<then>
+				<if condition='property("localFormat").contains("console")'>
+					<then>
+						<appender-ref ref="console" />
+						<!-- appender-ref ref="aiAppender" /-->
+					</then>
+					<else>
+						<appender-ref ref="json" />
+						<!-- appender-ref ref="aiAppender" /-->
+						
+					</else>
+				</if>
+			</then>
+			<else>
+				<appender-ref ref="json" />
+				<!-- appender-ref ref="aiAppender" /-->
+				
+			</else>
+		</if>
+	</root>
+	
+	
+	<!--  If its CONSOLE, use the below steps -->
+	
+	<!-- property name="LOG_FILE" value="${sre.logging.logFileLocation}/${appName}" /-->
+
+	<!-- property name="CONSOLE_LOG_PATTERN"
+		value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] [%-5level] 
+		Application=[${springAppName}] 
+		TraceId=[%mdc{traceId}] 
+		ParentId=[%mdc{parentId}] 
+		SpanId=[%mdc{spanId}] %c{1} - %msg%n" />
+
+	<appender name="console"
+		class="ch.qos.logback.core.ConsoleAppender">
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter"-->
+			<!-- What's your minimum Level to log -->
+			<!-- level>DEBUG</level>
+		</filter>
+		<encoder>
+			<pattern>${CONSOLE_LOG_PATTERN}</pattern>
+			<charset>utf8</charset>
+		</encoder>
+	</appender-->
+
+
+	
+	
+	<!--  If its FILE, write nto a FILE using below steps -->
+	
+		<!-- https://howtodoinjava.com/logback/rollingfileappender/ -->
+	<!-- if condition='property("localFormat").contains("file")' >
+		<then>
+			<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+			<file>${LOG_ROOT}/${LOG_FILE_NAME}.log</file>
+				<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+					<fileNamePattern>${LOG_ROOT}/${LOG_FILE_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern-->
+					<!-- each archived file's size will be max 10MB -->
+					<!-- maxFileSize>10MB</maxFileSize-->    
+					
+					<!-- 7 / 30daysdays to keep -->
+					<!-- maxHistory>7</maxHistory-->
+					
+					<!-- total size of all archive files, if total size > 10GB / 100GB, it will delete old archived file -->
+					<!-- totalSizeCap>10GB</totalSizeCap>
+				</rollingPolicy>
+				<encoder class="net.logstash.logback.encoder.LogstashEncoder">
+					<fieldNames>
+						<timestamp>requestTime</timestamp>
+					</fieldNames>
+					<timestampPattern>yyyy-MM-dd HH:mm:ss.SSS</timestampPattern>
+					<if condition = 'isDefined("localTimeZone")'>
+						<then>
+							<timeZone>${localTimeZone}</timeZone>
+						</then>
+						<else>
+							<timeZone>UTC</timeZone>
+						</else>
+					</if>
+					
+					<if condition='isDefined("enableStackTraceLimit")'>
+						<then>
+							<if condition='property("enableStackTraceLimit").contains("true")'>
+								<then>
+									<throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+  										<maxDepthPerThrowable>${stackTraceLimit}</maxDepthPerThrowable>
+  										<rootCauseFirst>${rootLocalCauseFirst}</rootCauseFirst>
+									</throwableConverter>
+								</then>
+							</if>
+						</then>
+					</if>
+				</encoder>
+			</appender>
+		</then>
+	</if-->
+	
+</configuration>

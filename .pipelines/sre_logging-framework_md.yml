@@ -1,0 +1,83 @@
+name: $(versionSemantic)
+
+trigger: none
+# trigger:
+#   branches:
+#     include:
+#       - master
+#       - develop
+#       - feature/*
+#       - release/*
+#       - hotfix/*
+
+pool:
+  name: Cloud Pool
+  demands:
+   - maven
+
+
+#parameters:
+
+  #- name: testing
+  #  type: string
+  #  default: 
+
+resources:
+  repositories:
+    - repository: cicd_moderndeployment
+      type: git
+      name: Cloud Team/cicd_moderndeployment
+    - repository: azure-pipeline-yaml-templates
+      type: git
+      name: Cloud Team/azure-pipeline-yaml-templates
+      ref: feature/sre-md-report
+
+
+extends:
+  template: project_yaml_libs/cloud/sre/sre-tas-md1.yml@cicd_moderndeployment
+  parameters:
+  #### Common controls
+    artifactsUpload: AzureArtifacts
+    binArtifactSource: 'cloud-sre-logging-framework/target'
+    cfManifestSource: $(Build.SourcesDirectory)
+    mvnArtifactToUpload: 'sre-common-logging-framework*.jar'
+    mvnArtifactCopyTargetFolder: 'cicdmd/dist/target'
+    #mvnCfArtifactToUpload: manifest.yml
+    #mvnCfArtifactCopyTargetFolder: cicdmd/dist
+    azureArtifactPathToArchive: cicdmd
+#### Audit Trail
+    auditTrail: true
+#### Gating
+#### Checkmarx ####
+    checkmarxEnabled: true
+    cxfolderExclusion: 'azure-pipeline-yaml-templates,cloud-sre-observability/cloud-sre-aac-templates,cloud-sre-observability/cloud-sre-dashboard,cloud-sre-observability/cloud-sre-iac-templates,cloud-sre-observability/cloud-sre-mac-templates,instrumentation-library'
+#### Blackduck ####
+    blackduckEnabled: true
+    bdfolderExclusion: 'azure-pipeline-yaml-templates,cloud-sre-aac-templates,cloud-sre-dashboard,cloud-sre-iac-templates,cloud-sre-mac-templates,instrumentation-library'
+    blackduckExtraArgs: "--detect.source.path='$(Build.SourcesDirectory)/cloud-sre-logging-framework/target'"
+#### Sonarqube ####
+    sonarqubeEnabled: true
+#### SonarQube qualitygate used for reporting
+    #sonarqubeQualityGate: 'Modern Deployment Quality Gate - Baseline'
+    sonarqubeProjectKey: org.nfcu.sre.clf:sre-common-logging-framework
+    sonarqubeBranchName: feature/logging-framework
+    sonarfolderExclusion: 'azure-pipeline-yaml-templates/**,cloud-sre-observability/cloud-sre-aac-templates/**,cloud-sre-observability/cloud-sre-dashboard/**,cloud-sre-observability/cloud-sre-iac-templates/**,cloud-sre-observability/cloud-sre-mac-templates/**,instrumentation-library/**'
+#### Build  
+    buildType: Maven
+    appType: Others
+    trunkBranches:
+      - refs/heads/master
+      - refs/heads/develop
+      - refs/heads/feature/logging-framework
+    versionMajor: 1
+    versionMinor: 0
+    buildArgs:
+    - name: mavenArgs
+      jdkVersion: 11
+      pomFile: cloud-sre-logging-framework/pom.xml
+      mavenOptions: '-DincPatch,-Dmaven.test.skip=false'
+    #--deploy
+    deploy: false  
+    sso: SKIP
+    credhub: SKIP
+    isFirstTimeDeploying: false
